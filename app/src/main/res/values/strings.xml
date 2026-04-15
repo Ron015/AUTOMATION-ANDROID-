@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Automation Android</string>
+    <string name="accessibility_description">Accessibility automation engine to execute JSON workflows.</string>
+    <string name="open_accessibility">Enable Accessibility Service</string>
+    <string name="start_overlay">Start Floating Controller</string>
+    <string name="open_editor">Open Visual Builder</string>
+    <string name="json_preview">JSON Preview</string>
+</resources>
