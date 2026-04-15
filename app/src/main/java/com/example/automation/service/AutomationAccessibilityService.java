@@ -1,15 +1,9 @@
 package com.example.automation.service;
 
 import android.accessibilityservice.AccessibilityService;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.Build;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
-
-import androidx.annotation.Nullable;
 
 import com.example.automation.engine.AutomationEngine;
 import com.example.automation.model.AutomationScript;
@@ -20,27 +14,16 @@ import com.example.automation.util.ScriptRepository;
 import org.json.JSONException;
 
 public class AutomationAccessibilityService extends AccessibilityService {
-    private static final String TAG = "AutomationService";
-
-    private static volatile AutomationAccessibilityService instance;
+    public static final String ACTION_START = "com.example.automation.START";
+    public static final String ACTION_STOP = "com.example.automation.STOP";
+    public static final String ACTION_PAUSE = "com.example.automation.PAUSE";
+    public static final String ACTION_RESUME = "com.example.automation.RESUME";
+    public static final String ACTION_RECORD_START = "com.example.automation.RECORD_START";
+    public static final String ACTION_RECORD_STOP = "com.example.automation.RECORD_STOP";
 
     private final AutomationEngine automationEngine = new AutomationEngine();
     private final ScriptParser parser = new ScriptParser();
     private final InteractionRecorder recorder = new InteractionRecorder();
-
-    private final BroadcastReceiver commandReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent != null) {
-                handleAction(intent.getAction());
-            }
-        }
-    };
-
-    @Nullable
-    public static AutomationAccessibilityService getInstance() {
-        return instance;
-    }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -50,61 +33,39 @@ public class AutomationAccessibilityService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
-        instance = this;
-        registerCommandReceiver();
-        Log.i(TAG, "Accessibility service connected and command bus ready.");
+        Log.i("AutomationService", "Accessibility service connected.");
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null) {
-            handleAction(intent.getAction());
+        if (intent == null || intent.getAction() == null) {
+            return START_STICKY;
         }
-        return START_STICKY;
-    }
-
-    private void registerCommandReceiver() {
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(AutomationCommands.ACTION_START);
-        filter.addAction(AutomationCommands.ACTION_STOP);
-        filter.addAction(AutomationCommands.ACTION_PAUSE);
-        filter.addAction(AutomationCommands.ACTION_RESUME);
-        filter.addAction(AutomationCommands.ACTION_RECORD_START);
-        filter.addAction(AutomationCommands.ACTION_RECORD_STOP);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(commandReceiver, filter, RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(commandReceiver, filter);
-        }
-    }
-
-    private void handleAction(String action) {
-        if (action == null) {
-            return;
-        }
+        String action = intent.getAction();
         switch (action) {
-            case AutomationCommands.ACTION_START:
+            case ACTION_START:
                 startAutomation();
                 break;
-            case AutomationCommands.ACTION_STOP:
+            case ACTION_STOP:
                 automationEngine.stop();
                 break;
-            case AutomationCommands.ACTION_PAUSE:
+            case ACTION_PAUSE:
                 automationEngine.pause();
                 break;
-            case AutomationCommands.ACTION_RESUME:
+            case ACTION_RESUME:
                 automationEngine.resume();
                 break;
-            case AutomationCommands.ACTION_RECORD_START:
+            case ACTION_RECORD_START:
                 recorder.start();
                 break;
-            case AutomationCommands.ACTION_RECORD_STOP:
+            case ACTION_RECORD_STOP:
                 recorder.stop();
                 ScriptRepository.saveScript(this, recorder.exportJson());
                 break;
             default:
                 break;
         }
+        return START_STICKY;
     }
 
     private void startAutomation() {
@@ -113,22 +74,12 @@ public class AutomationAccessibilityService extends AccessibilityService {
             AutomationScript script = parser.parse(json);
             automationEngine.runScript(this, script);
         } catch (JSONException e) {
-            Log.e(TAG, "Invalid JSON script", e);
+            Log.e("AutomationService", "Invalid JSON script", e);
         }
     }
 
     @Override
     public void onInterrupt() {
         automationEngine.stop();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        instance = null;
-        try {
-            unregisterReceiver(commandReceiver);
-        } catch (Exception ignored) {
-        }
     }
 }

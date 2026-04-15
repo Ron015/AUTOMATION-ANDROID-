@@ -11,18 +11,14 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
-import com.example.automation.service.AutomationCommandDispatcher;
-import com.example.automation.service.AutomationCommands;
+import com.example.automation.service.AutomationAccessibilityService;
 
 public class FloatingControllerService extends Service {
     private WindowManager windowManager;
     private View floatingView;
-    private LinearLayout controlsContainer;
-    private boolean expanded = true;
 
     @Nullable
     @Override
@@ -52,84 +48,48 @@ public class FloatingControllerService extends Service {
                 PixelFormat.TRANSLUCENT
         );
         params.gravity = Gravity.TOP | Gravity.START;
-        params.x = 30;
-        params.y = 220;
+        params.x = 50;
+        params.y = 200;
 
         floatingView.setOnTouchListener(new DragTouchListener(params));
         windowManager.addView(floatingView, params);
+
+        ImageButton start = floatingView.findViewById(1001);
+        ImageButton pause = floatingView.findViewById(1002);
+        ImageButton stop = floatingView.findViewById(1003);
+
+        start.setOnClickListener(v -> sendAction(AutomationAccessibilityService.ACTION_START));
+        pause.setOnClickListener(v -> sendAction(AutomationAccessibilityService.ACTION_PAUSE));
+        stop.setOnClickListener(v -> sendAction(AutomationAccessibilityService.ACTION_STOP));
     }
 
     private View createFloatingLayout() {
         LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
+        root.setOrientation(LinearLayout.HORIZONTAL);
         root.setBackgroundResource(android.R.drawable.dialog_holo_light_frame);
-        root.setPadding(12, 12, 12, 12);
-        root.setAlpha(0.93f);
 
-        TextView header = new TextView(this);
-        header.setText("⚙ Bot Control");
-        header.setTextSize(14);
-        header.setPadding(8, 4, 8, 10);
+        ImageButton start = new ImageButton(this);
+        start.setId(1001);
+        start.setImageResource(android.R.drawable.ic_media_play);
 
-        controlsContainer = new LinearLayout(this);
-        controlsContainer.setOrientation(LinearLayout.HORIZONTAL);
+        ImageButton pause = new ImageButton(this);
+        pause.setId(1002);
+        pause.setImageResource(android.R.drawable.ic_media_pause);
 
-        ImageButton start = createIconButton(android.R.drawable.ic_media_play);
-        ImageButton pause = createIconButton(android.R.drawable.ic_media_pause);
-        ImageButton resume = createIconButton(android.R.drawable.ic_media_ff);
-        ImageButton stop = createIconButton(android.R.drawable.ic_menu_close_clear_cancel);
-        ImageButton record = createIconButton(android.R.drawable.presence_video_online);
-        ImageButton hide = createIconButton(android.R.drawable.arrow_up_float);
+        ImageButton stop = new ImageButton(this);
+        stop.setId(1003);
+        stop.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
 
-        start.setOnClickListener(v -> sendAction(AutomationCommands.ACTION_START));
-        pause.setOnClickListener(v -> sendAction(AutomationCommands.ACTION_PAUSE));
-        resume.setOnClickListener(v -> sendAction(AutomationCommands.ACTION_RESUME));
-        stop.setOnClickListener(v -> sendAction(AutomationCommands.ACTION_STOP));
-        record.setOnClickListener(v -> toggleRecord(record));
-        hide.setOnClickListener(v -> toggleExpanded());
-        hide.setOnLongClickListener(v -> {
-            stopSelf();
-            return true;
-        });
-
-        controlsContainer.addView(start);
-        controlsContainer.addView(pause);
-        controlsContainer.addView(resume);
-        controlsContainer.addView(stop);
-        controlsContainer.addView(record);
-        controlsContainer.addView(hide);
-
-        root.addView(header);
-        root.addView(controlsContainer);
+        root.addView(start);
+        root.addView(pause);
+        root.addView(stop);
         return root;
     }
 
-    private ImageButton createIconButton(int resId) {
-        ImageButton button = new ImageButton(this);
-        button.setImageResource(resId);
-        button.setBackgroundColor(0x00000000);
-        return button;
-    }
-
-    private void toggleRecord(ImageButton record) {
-        if (record.isSelected()) {
-            sendAction(AutomationCommands.ACTION_RECORD_STOP);
-            record.setSelected(false);
-            record.setAlpha(1f);
-        } else {
-            sendAction(AutomationCommands.ACTION_RECORD_START);
-            record.setSelected(true);
-            record.setAlpha(0.5f);
-        }
-    }
-
-    private void toggleExpanded() {
-        expanded = !expanded;
-        controlsContainer.setVisibility(expanded ? View.VISIBLE : View.GONE);
-    }
-
     private void sendAction(String action) {
-        AutomationCommandDispatcher.dispatch(this, action);
+        Intent intent = new Intent(this, AutomationAccessibilityService.class);
+        intent.setAction(action);
+        startService(intent);
     }
 
     @Override
@@ -146,7 +106,6 @@ public class FloatingControllerService extends Service {
         private int initialY;
         private float initialTouchX;
         private float initialTouchY;
-        private long downTime;
 
         DragTouchListener(WindowManager.LayoutParams params) {
             this.params = params;
@@ -156,7 +115,6 @@ public class FloatingControllerService extends Service {
         public boolean onTouch(View v, MotionEvent event) {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
-                    downTime = System.currentTimeMillis();
                     initialX = params.x;
                     initialY = params.y;
                     initialTouchX = event.getRawX();
@@ -167,22 +125,9 @@ public class FloatingControllerService extends Service {
                     params.y = initialY + (int) (event.getRawY() - initialTouchY);
                     windowManager.updateViewLayout(floatingView, params);
                     return true;
-                case MotionEvent.ACTION_UP:
-                    snapToEdge(params);
-                    if (System.currentTimeMillis() - downTime > 700) {
-                        toggleExpanded();
-                        return true;
-                    }
-                    return false;
                 default:
                     return false;
             }
-        }
-
-        private void snapToEdge(WindowManager.LayoutParams params) {
-            int width = getResources().getDisplayMetrics().widthPixels;
-            params.x = params.x < width / 2 ? 0 : width - floatingView.getWidth();
-            windowManager.updateViewLayout(floatingView, params);
         }
     }
 }
