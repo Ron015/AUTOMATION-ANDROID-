@@ -1,0 +1,43 @@
+{
+  "steps": [
+    {
+      "action": "click",
+      "find": [
+        { "id": "com.app:id/login_btn" },
+        { "text": "Login" },
+        { "desc": "login button" }
+      ],
+      "delay_before": 1000,
+      "delay_after": 1200,
+      "wait_for": {
+        "text": "Login",
+        "timeout": 5000,
+        "interval": 300
+      },
+      "retry": {
+        "max_attempts": 5,
+        "delay": 1000,
+        "on_fail": "retry"
+      }
+    },
+    {
+      "action": "input",
+      "id": "com.app:id/username",
+      "value": "user123"
+    },
+    {
+      "action": "input",
+      "id": "com.app:id/password",
+      "value": "pass123"
+    },
+    {
+      "action": "click",
+      "text": "Submit",
+      "wait_until_gone": {
+        "text": "Loading",
+        "timeout": 10000,
+        "interval": 300
+      }
+    }
+  ]
+}
